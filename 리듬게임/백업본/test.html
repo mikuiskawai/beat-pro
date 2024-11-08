@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>채보 편집기</title>
+    <style>
+        #timeline {
+            position: relative;
+            width: 100%;
+            height: 400px;
+            border: 1px solid #ccc;
+            background-color: #f4f4f4;
+            overflow-x: scroll;
+        }
+        .note {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background-color: #3498db;
+            cursor: pointer;
+        }
+        .long-note {
+            background-color: #e74c3c;
+            width: 20px;
+            position: absolute;
+            cursor: pointer;
+        }
+        .measure-line {
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            background-color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <h1>채보 편집기</h1>
+    <div id="timeline"></div>
+    <button onclick="saveChart()">저장</button>
+</body>
+<script>
+const timeline = document.getElementById('timeline');
+const chartData = []; // beats.txt에서 가져온 데이터를 저장하는 배열
+const beatWidth = 50; // 한 박자의 가로 길이 (픽셀)
+
+// 채보 데이터 불러오기
+fetch('beats.txt')
+    .then(response => response.text())
+    .then(data => {
+        const lines = data.split('\n').map(line => line.trim()).filter(line => line);
+        parseChartData(lines);
+        renderTimeline();
+    })
+    .catch(error => console.error('채보 파일을 불러오는 중 오류 발생:', error));
+
+// 채보 데이터를 배열로 파싱
+function parseChartData(lines) {
+    const [BPM, beatsPerMeasure, syncTime] = lines[0].split(' ').map(Number);
+    chartData.push({ BPM, beatsPerMeasure, syncTime, notes: [] });
+
+    let currentMeasure = -1;
+    for (let i = 1; i < lines.length; i++) {
+        if (lines[i] === '-') {
+            currentMeasure++;
+        } else {
+            const [beat, column, duration = 0] = lines[i].split(' ').map(Number);
+            const time = (currentMeasure * beatsPerMeasure + (beat - 1)) * beatWidth;
+            chartData.push({ time, column, duration });
+        }
+    }
+}
+
+// 타임라인에 노트와 마디 표시하기
+function renderTimeline() {
+    timeline.innerHTML = ''; // 기존 요소들 삭제 후 다시 렌더링
+
+    chartData.forEach((noteData, index) => {
+        if (index === 0) return; // 첫 번째 줄(BPM, 마디 수 등)은 제외
+        
+        if (noteData.column !== undefined) {
+            const note = document.createElement('div');
+            note.classList.add(noteData.duration > 0 ? 'long-note' : 'note');
+            note.style.left = `${noteData.time}px`;
+            note.style.top = `${noteData.column * 40}px`; // 열에 따라 위치 조정
+            note.draggable = true;
+            note.addEventListener('click', () => {
+                chartData.splice(index, 1);
+                renderTimeline();
+            });
+            // 롱 노트일 경우, width를 지속 길이에 따라 설정
+            if (noteData.duration > 0) {
+                note.style.width = `${noteData.duration * beatWidth}px`;
+            }
+
+            // 노트 드래그 이동
+            note.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('noteIndex', index);
+            });
+            note.addEventListener('dragend', (e) => {
+                const newLeft = e.clientX - timeline.offsetLeft;
+                const newBeat = newLeft / beatWidth;
+                chartData[index].time = newBeat * beatWidth;
+                renderTimeline();
+            });
+
+            // 노트 삭제 기능 추가
+            note.addEventListener('click', () => {
+                chartData.splice(index, 1);
+                renderTimeline();
+            });
+
+            timeline.appendChild(note);
+        } else {
+            const measureLine = document.createElement('div');
+            measureLine.classList.add('measure-line');
+            measureLine.style.left = `${noteData.time}px`;
+            timeline.appendChild(measureLine);
+        }
+    });
+}
+
+// 빈 공간 클릭 시 새 노트 추가
+timeline.addEventListener('click', (e) => {
+    const newBeat = e.offsetX / beatWidth;
+    const newColumn = Math.floor(e.offsetY / 40); // y 위치에 따라 열 결정
+
+    chartData.push({
+        time: newBeat * beatWidth,
+        column: newColumn,
+        duration: 0 // 기본 노트 길이
+    });
+    renderTimeline();
+});
+// 채보 저장하기
+function saveChart() {
+    const dataLines = [];
+    const header = `${chartData[0].BPM} ${chartData[0].beatsPerMeasure} ${chartData[0].syncTime}`;
+    dataLines.push(header);
+    
+    let currentMeasure = 0;
+    chartData.slice(1).forEach((note, index) => {
+        const beat = (note.time / beatWidth) + 1;
+        if (note.column === undefined) {
+            dataLines.push('-');
+            currentMeasure++;
+        } else {
+            dataLines.push(`${beat.toFixed(2)} ${note.column} ${note.duration}`);
+        }
+    });
+
+    const fileContent = dataLines.join('\n');
+
+    // 파일 대체하기 (파일 저장 로직 구현 필요 - 서버 측 코드 필요)
+    fetch('beats.txt', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'text/plain',
+        },
+        body: fileContent
+    }).then(response => {
+        if (response.ok) {
+            alert('채보가 성공적으로 저장되었습니다.');
+        } else {
+            alert('파일을 저장하는 데 실패했습니다.');
+        }
+    }).catch(error => console.error('파일 저장 중 오류 발생:', error));
+}
+
+</script>
+</html>

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warp Effect</title>
+<style>
+    body {
+        margin: 0;
+        overflow: hidden;
+        background: black;
+    }
+
+    .warp-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        perspective: 1000px;
+    }
+
+    .star {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 2px;
+        height: var(--star-length, 300px); /* 기본 길이 설정 */
+        background: #00bfff;
+        opacity: 0.7;
+        transform-origin: 0 0;
+        animation: warpAnimation var(--star-speed, 2s) linear infinite;
+    }
+
+    @keyframes warpAnimation {
+        0% {
+            transform: translateX(-50%) translateY(-50%) translateZ(0px);
+            opacity: 1;
+        }
+        100% {
+            transform: translateX(-50%) translateY(-50%) translateZ(1000px);
+            opacity: 0;
+        }
+    }
+</style>
+</head>
+<body>
+
+<div class="warp-container"></div>
+
+<script>
+    const warpContainer = document.querySelector('.warp-container');
+    const starCount = 100; // 별의 개수
+
+    function createStars() {
+        for (let i = 0; i < starCount; i++) {
+            const star = document.createElement('div');
+            star.classList.add('star');
+            // 별의 랜덤 위치 설정
+            star.style.transform = `rotateX(${Math.random() * 360}deg) rotateY(${Math.random() * 360}deg)`;
+            warpContainer.appendChild(star);
+        }
+    }
+
+    // 별 길이와 속도 조절
+    function setWarpEffect(length, speed) {
+        document.querySelectorAll('.star').forEach(star => {
+            star.style.setProperty('--star-length', `${length}px`);
+            star.style.setProperty('--star-speed', `${speed}s`);
+        });
+    }
+
+    createStars();
+
+    // 원하는 길이와 속도 값을 입력하세요
+    setWarpEffect(500, 1.5);
+</script>
+
+</body>
+</html>
